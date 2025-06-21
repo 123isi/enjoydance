@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import styled from "@emotion/styled";
 import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRedo, FaRandom, FaVolumeUp, FaListUl } from "react-icons/fa";
+import { useYoutubeImageStore } from './useYoutubeImageStore';
 
 
 declare global {
@@ -13,32 +14,34 @@ declare global {
 type Props = {
   title: string;
   artist: string;
-  albumImageUrl?: string;
   videoId?: string;
   onNext?: () => void;
   onPrev?: () => void;
 };
 
-export default function PlayerBar({ title, artist, albumImageUrl, videoId, onNext, onPrev }: Props) {
+export default function PlayerBar({ title, artist, videoId, onNext, onPrev }: Props) {
   const playerRef = useRef<any>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [volume, setVolume] = useState(50);
+  const { imageMap } = useYoutubeImageStore();
+  const imageKey = `${title}-${artist}`;
+  const albumImageUrl = imageMap[imageKey];
   useEffect(() => {
     if (!videoId) return;
-  
-    // 1) 기존 플레이어 있으면 완전 제거
+
     if (playerRef.current) {
       playerRef.current.destroy();
       playerRef.current = null;
       if (intervalRef.current) clearInterval(intervalRef.current);
     }
-  
-    // 2) YouTube API 준비되면 새로 생성
     const onPlayerReady = (e: any) => {
       const p = e.target;
+      playerRef.current = p;
       setDuration(p.getDuration());
+      p.setVolume(volume);
       p.playVideo();
     };
   
@@ -55,7 +58,8 @@ export default function PlayerBar({ title, artist, albumImageUrl, videoId, onNex
         if (intervalRef.current) clearInterval(intervalRef.current);
       }
     };
-  
+    
+    
     const create = () => {
       playerRef.current = new window.YT.Player("yt-player", {
         videoId,
@@ -83,7 +87,6 @@ export default function PlayerBar({ title, artist, albumImageUrl, videoId, onNex
           } else {
             p.playVideo();
           }
-    // 클릭 즉시 토글 아이콘 반영ㅌ
     setIsPlaying(!isPlaying);
   };
   const formatTime = (t: number) => {
@@ -95,16 +98,40 @@ export default function PlayerBar({ title, artist, albumImageUrl, videoId, onNex
       .padStart(2, "0");
     return `${m}:${s}`;
   };
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = Number(e.target.value);
+    setVolume(val);
+    if (playerRef.current) {
+      playerRef.current.setVolume(val);
+    }
+  };
+  useEffect(() => {
+    if (playerRef.current && typeof playerRef.current.setVolume === "function") {
+      playerRef.current.setVolume(volume);
+    }
+  }, [volume]);
+  const [isMuted, setIsMuted] = useState(false);
+
+const toggleMute = () => {
+  if (playerRef.current) {
+    if (isMuted) {
+      playerRef.current.unMute();
+    } else {
+      playerRef.current.mute();
+    }
+    setIsMuted(!isMuted);
+  }
+};
 
   return (
     <BarWrapper>
       <Left>
-        {albumImageUrl ? <AlbumImg src={albumImageUrl} /> : <AlbumImgPlaceholder />}
-        <SongInfo>
-          <SongTitle>{title}</SongTitle>
-          <ArtistName>{artist}</ArtistName>
-        </SongInfo>
-      </Left>
+  {albumImageUrl ? <AlbumImg src={albumImageUrl} /> : <AlbumImgPlaceholder />}
+  <SongInfo>
+    <SongTitle>{title}</SongTitle>
+    <ArtistName>{artist}</ArtistName>
+  </SongInfo>
+</Left>
 
       <Center>
       <IconGroup>
@@ -137,8 +164,15 @@ export default function PlayerBar({ title, artist, albumImageUrl, videoId, onNex
 
       <Right>
         <VolumeWrapper>
-          <FaVolumeUp />
-          <VolumeBar />
+        <FaVolumeUp onClick={toggleMute} style={{ cursor: 'pointer' }} />
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={volume}
+              onChange={handleVolumeChange}
+              style={{ width: "80px", accentColor: "#1db954" }}
+            />
         </VolumeWrapper>
       </Right>
 
