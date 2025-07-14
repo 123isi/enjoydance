@@ -9,6 +9,7 @@ type Song = {
   title: string;
   artist: string;
   albumImageUrl?: string;
+  thumbnail?: string;
 };
 
 type YoutubeResult = {
@@ -51,8 +52,6 @@ export default function App() {
       const enriched = await Promise.all(res.data.map(async (song: Song) => {
         const key = `${song.title}-${song.artist}`;
         if (imageMap[key]) return { ...song, albumImageUrl: imageMap[key] };
-    
-        try {
           const searchRes = await axios.get("https://letsgomusic.onrender.com/melon/search", {
             params: { q: `${song.title} ${song.artist}` },
           });
@@ -60,9 +59,7 @@ export default function App() {
           const imageUrl = `https://img.youtube.com/vi/${videoId}/0.jpg`;
           setImage(key, imageUrl);
           return { ...song, albumImageUrl: imageUrl };
-        } catch {
-          return { ...song, albumImageUrl: placeholderUrl };
-        }
+        
       }));
       setSongs(enriched);
     });    
@@ -88,18 +85,14 @@ export default function App() {
         const key = `${song.title}-${song.artist}`;
         if (song.albumImageUrl) return song;
         if (imageMap[key]) return { ...song, albumImageUrl: imageMap[key] };
-        try {
           const searchRes = await axios.get("https://letsgomusic.onrender.com/melon/search", {
             params: { q: `${song.title} ${song.artist}` },
             withCredentials: true,
           });
           const videoId = searchRes.data.videoId;
           const imageUrl = `https://img.youtube.com/vi/${videoId}/0.jpg`;
-          setImage(key, imageUrl);
+          setImage(key, imageUrl); // 이건 Zustand
           return { ...song, albumImageUrl: imageUrl };
-        } catch {
-          return { ...song, albumImageUrl: placeholderUrl };
-        }
       }));
       setPlaylist(enriched);
     })
@@ -290,7 +283,7 @@ export default function App() {
               </DeleteButton> 
             )}
           </td>
-          <td><AlbumImg src={song.albumImageUrl} size={50} /></td>
+          <AlbumImg src={song.albumImageUrl ?? song.thumbnail ?? placeholderUrl} size={50} />
           <td className="title">{song.title}</td>
           <td>{song.artist}</td>
         </tr>
