@@ -1,4 +1,3 @@
-/** @jsxImportSource @emotion/react */
 import axios from "axios";
 import { useEffect, useState } from "react";
 import styled from "@emotion/styled";
@@ -11,11 +10,11 @@ type Song = {
   artist: string;
   albumImageUrl?: string;
 };
+
 type YoutubeResult = {
   videoId: string;
   title: string;
 };
-
 
 export default function App() {
   const { imageMap, setImage } = useYoutubeImageStore();
@@ -23,162 +22,110 @@ export default function App() {
   const [selected, setSelected] = useState<Song | null>(null);
   const placeholderUrl = "https://via.placeholder.com/60";
   const [youtubeData, setYoutubeData] = useState<YoutubeResult | null>(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState<string>("");
   const [playlist, setPlaylist] = useState<Song[]>([]);
-  const [isPlayingPlaylist, setIsPlayingPlaylist] = useState(false);
+  const [isPlayingPlaylist, setIsPlayingPlaylist] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<"ranking" | "playlist">("ranking");
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [username, setUsername] = useState<string | null>(null);
-  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
   const [authMode, setAuthMode] = useState<"login" | "register" | null>(null);
 
   useEffect(() => {
-    axios.get("https://letsgomusic.onrender.com/me", {
-      withCredentials: true,
-    })
+    axios.get("https://letsgomusic.onrender.com/me", { withCredentials: true })
       .then(res => {
-        setUsername(res.data.username); // ✔️ 사용자 이름 설정
-        setIsLoggedIn(true);            // ✔️ 로그인 상태 복구 추가!
+        setUsername(res.data.username ?? "");
+        setIsLoggedIn(true);
       })
-      .catch(err => {
-        setUsername(null);
-        setIsLoggedIn(false);           // ❗ 로그인 실패 시 false 처리도 명시!
+      .catch(() => {
+        setUsername("");
+        setIsLoggedIn(false);
       });
   }, []);
-  
-  
+
+  useEffect(() => {
+    axios.get("https://letsgomusic.onrender.com/melon")
+      .then(async (res) => {
+        const enriched = await Promise.all(res.data.map(async (song: Song) => {
+          const key = `${song.title}-${song.artist}`;
+          if (imageMap[key]) return { ...song, albumImageUrl: imageMap[key] };
+
+          try {
+            const searchRes = await axios.get("https://letsgomusic.onrender.com/melon/search", {
+              params: { q: `${song.title} ${song.artist}` },
+            });
+            const videoId = searchRes.data.videoId;
+            const imageUrl = `https://img.youtube.com/vi/${videoId}/0.jpg`;
+            setImage(key, imageUrl);
+            return { ...song, albumImageUrl: imageUrl };
+          } catch {
+            return { ...song, albumImageUrl: placeholderUrl };
+          }
+        }));
+        setSongs(enriched);
+      })
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (!selected) return;
+    axios.get("https://letsgomusic.onrender.com/melon/search", {
+      params: { q: `${selected.title} ${selected.artist}` },
+    }).then((res) => setYoutubeData(res.data));
+  }, [selected]);
+
+  useEffect(() => {
+    if (viewMode !== "playlist") return;
+    axios.get("https://letsgomusic.onrender.com/playlist")
+      .then(async (res) => {
+        if (!Array.isArray(res.data)) return setPlaylist([]);
+        const enriched = await Promise.all(res.data.map(async (song: Song) => {
+          const key = `${song.title}-${song.artist}`;
+          if (song.albumImageUrl) return song;
+          if (imageMap[key]) return { ...song, albumImageUrl: imageMap[key] };
+          try {
+            const searchRes = await axios.get("https://letsgomusic.onrender.com/melon/search", {
+              params: { q: `${song.title} ${song.artist}` },
+            });
+            const videoId = searchRes.data.videoId;
+            const imageUrl = `https://img.youtube.com/vi/${videoId}/0.jpg`;
+            setImage(key, imageUrl);
+            return { ...song, albumImageUrl: imageUrl };
+          } catch {
+            return { ...song, albumImageUrl: placeholderUrl };
+          }
+        }));
+        setPlaylist(enriched);
+      })
+      .catch(() => setPlaylist([]));
+  }, [viewMode]);
+
   const filteredSongs = songs.filter(song =>
     song.title.toLowerCase().includes(search.toLowerCase()) ||
     song.artist.toLowerCase().includes(search.toLowerCase())
   );
+
   const toggleInPlaylist = (song: Song) => {
     setPlaylist(prev => {
       const exists = prev.find(s => s.rank === song.rank);
-      if (exists) return prev.filter(s => s.rank !== song.rank);
-      else return [...prev, song];
+      return exists ? prev.filter(s => s.rank !== song.rank) : [...prev, song];
     });
   };
-  useEffect(() => {
-    if (viewMode === "playlist") {
-      axios.get("https://letsgomusic.onrender.com/playlist")
-        .then((res) => {
-          if (Array.isArray(res.data)) {
-            setPlaylist(res.data);
-          } else {
-            console.warn("예상과 다른 응답:", res.data);
-            setPlaylist([]);
-          }
-        })
-        .catch((err) => {
-          console.error("플레이리스트 요청 실패:", err);
-          setPlaylist([]);
-        });
-    }
-  }, [viewMode]);
-  
+
   const handleNext = () => {
     const list = isPlayingPlaylist ? playlist : songs;
     if (!selected) return;
     const idx = list.findIndex(s => s.rank === selected.rank);
-    const next = list[(idx + 1) % list.length];
-    setSelected(next);
+    setSelected(list[(idx + 1) % list.length]);
   };
-  
+
   const handlePrev = () => {
     const list = isPlayingPlaylist ? playlist : songs;
     if (!selected) return;
     const idx = list.findIndex(s => s.rank === selected.rank);
-    const prev = list[(idx - 1 + list.length) % list.length];
-    setSelected(prev);
+    setSelected(list[(idx - 1 + list.length) % list.length]);
   };
-  
-  useEffect(() => {
-    axios.get("https://letsgomusic.onrender.com/melon")
-      .then(async (res) => {
-        const enriched = await Promise.all(
-          res.data.map(async (song: Song) => {
-            const key = `${song.title}-${song.artist}`;
-  
-            // 전역 상태에 있으면 그걸 써
-            if (imageMap[key]) {
-              return { ...song, albumImageUrl: imageMap[key] };
-            }
-  
-            // 없으면 YouTube 검색 후 상태에 저장
-            try {
-              const searchRes = await axios.get("https://letsgomusic.onrender.com/melon/search", {
-                params: { q: `${song.title} ${song.artist}` },
-              });
-              const videoId = searchRes.data.videoId;
-              const imageUrl = `https://img.youtube.com/vi/${videoId}/0.jpg`;
-              setImage(key, imageUrl); // Zustand에 저장
-              return { ...song, albumImageUrl: imageUrl };
-            } catch (err) {
-              console.error("검색 실패:", key);
-              return { ...song, albumImageUrl: placeholderUrl };
-            }
-          })
-        );
-  
-        setSongs(enriched);
-      })
-      .catch((err) => console.error("멜론 API 실패", err));
-  }, []);
-  
-  useEffect(() => {
-    if (!selected) return;
-  
-    axios
-  .get("https://letsgomusic.onrender.com/melon/search", {
-    params: { q: `${selected.title} ${selected.artist}` },
-  })
-  .then((res) => {
-    setYoutubeData(res.data); 
-  })
 
-  }, [selected]);
-  
-  useEffect(() => {
-    if (viewMode === "playlist") {
-      axios.get("https://letsgomusic.onrender.com/playlist")
-        .then(async (res) => {
-          if (Array.isArray(res.data)) {
-            const enriched = await Promise.all(
-              res.data.map(async (song: Song) => {
-                const key = `${song.title}-${song.artist}`;
-  
-                if (song.albumImageUrl) return song;
-  
-                if (imageMap[key]) {
-                  return { ...song, albumImageUrl: imageMap[key] };
-                }
-  
-                try {
-                  const searchRes = await axios.get("https://letsgomusic.onrender.com/melon/search", {
-                    params: { q: `${song.title} ${song.artist}` },
-                  });
-                  const videoId = searchRes.data.videoId;
-                  const imageUrl = `https://img.youtube.com/vi/${videoId}/0.jpg`;
-                  setImage(key, imageUrl);
-                  return { ...song, albumImageUrl: imageUrl };
-                } catch (err) {
-                  return { ...song, albumImageUrl: placeholderUrl };
-                }
-              })
-            );
-            setPlaylist(enriched);
-          } else {
-            console.warn("예상과 다른 응답:", res.data);
-            setPlaylist([]);
-          }
-        })
-        .catch((err) => {
-          console.error("플레이리스트 요청 실패:", err);
-          setPlaylist([]);
-        });
-    }
-  }, [viewMode]);
-  
   return (
     <>
     {!isLoggedIn && (
