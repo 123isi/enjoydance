@@ -262,26 +262,6 @@ const AlbumImg = styled.img`
   object-fit: cover;
 `;
 
-const PlayButton = styled(FaPlay)`
-  font-size: 1.4rem;
-  cursor: pointer;
-`;
-
-const VolumeBar = styled.div`
-  width: 80px;
-  height: 6px;
-  background: #444;
-  border-radius: 3px;
-  position: relative;
-
-  &::before {
-    content: "";
-    display: block;
-    width: 50%;
-    height: 100%;
-    background: #1db954;
-  }
-`;
 
 const VolumeWrapper = styled.div`
   display: flex;
