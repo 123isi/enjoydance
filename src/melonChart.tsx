@@ -28,15 +28,25 @@ export default function App() {
   const [isPlayingPlaylist, setIsPlayingPlaylist] = useState(false);
   const [viewMode, setViewMode] = useState<"ranking" | "playlist">("ranking");
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "register" | null>(null);
 
-useEffect(() => {
-  axios.get("http://127.0.0.1:8000/me", { withCredentials: true })
-    .then(() => setIsLoggedIn(true))
-    .catch(() => setIsLoggedIn(false));
-}, []);
+  useEffect(() => {
+    axios.get("https://letsgomusic.onrender.com/me", {
+      withCredentials: true,
+    })
+      .then(res => {
+        setUsername(res.data.username); // ✔️ 사용자 이름 설정
+        setIsLoggedIn(true);            // ✔️ 로그인 상태 복구 추가!
+      })
+      .catch(err => {
+        setUsername(null);
+        setIsLoggedIn(false);           // ❗ 로그인 실패 시 false 처리도 명시!
+      });
+  }, []);
+  
+  
   const filteredSongs = songs.filter(song =>
     song.title.toLowerCase().includes(search.toLowerCase()) ||
     song.artist.toLowerCase().includes(search.toLowerCase())
@@ -50,7 +60,7 @@ useEffect(() => {
   };
   useEffect(() => {
     if (viewMode === "playlist") {
-      axios.get("http://127.0.0.1:8000/playlist")
+      axios.get("https://letsgomusic.onrender.com/playlist")
         .then((res) => {
           if (Array.isArray(res.data)) {
             setPlaylist(res.data);
@@ -83,7 +93,7 @@ useEffect(() => {
   };
   
   useEffect(() => {
-    axios.get("/melon")
+    axios.get("https://letsgomusic.onrender.com/melon")
       .then(async (res) => {
         const enriched = await Promise.all(
           res.data.map(async (song: Song) => {
@@ -96,7 +106,7 @@ useEffect(() => {
   
             // 없으면 YouTube 검색 후 상태에 저장
             try {
-              const searchRes = await axios.get("/melon/search", {
+              const searchRes = await axios.get("https://letsgomusic.onrender.com/melon/search", {
                 params: { q: `${song.title} ${song.artist}` },
               });
               const videoId = searchRes.data.videoId;
@@ -119,7 +129,7 @@ useEffect(() => {
     if (!selected) return;
   
     axios
-  .get("/melon/search", {
+  .get("https://letsgomusic.onrender.com/melon/search", {
     params: { q: `${selected.title} ${selected.artist}` },
   })
   .then((res) => {
@@ -130,7 +140,7 @@ useEffect(() => {
   
   useEffect(() => {
     if (viewMode === "playlist") {
-      axios.get("http://127.0.0.1:8000/playlist")
+      axios.get("https://letsgomusic.onrender.com/playlist")
         .then(async (res) => {
           if (Array.isArray(res.data)) {
             const enriched = await Promise.all(
@@ -144,7 +154,7 @@ useEffect(() => {
                 }
   
                 try {
-                  const searchRes = await axios.get("/melon/search", {
+                  const searchRes = await axios.get("https://letsgomusic.onrender.com/melon/search", {
                     params: { q: `${song.title} ${song.artist}` },
                   });
                   const videoId = searchRes.data.videoId;
@@ -195,15 +205,13 @@ useEffect(() => {
     <button
       onClick={() => {
         axios
-  .post("http://127.0.0.1:8000/login", { username, password })
+  .post("https://letsgomusic.onrender.com/login", { username, password }, { withCredentials: true })
   .then((res) => {
     if (res.data.error) {
-      alert(res.data.error);  // ❗ 에러 응답 처리
+      alert(res.data.error);
       return;
     }
-
     alert("로그인 성공");
-    document.cookie = `access_token=${res.data.token}; path=/`;
     setIsLoggedIn(true);
     setAuthMode(null);
   })
@@ -243,7 +251,7 @@ useEffect(() => {
     }
 
     axios
-      .post("http://127.0.0.1:8000/register", {
+      .post("https://letsgomusic.onrender.com/register", {
         username: username,
         password: password,
       })
@@ -324,8 +332,8 @@ useEffect(() => {
                     .catch(() => alert("삭제 실패"));
                 }}
               >
-                ❌
-              </DeleteButton>
+                지울꼬얌?
+              </DeleteButton> 
             )}
           </td>
           <td><AlbumImg src={song.albumImageUrl} size={50} /></td>
