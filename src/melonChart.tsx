@@ -44,61 +44,68 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    axios.get("https://letsgomusic.onrender.com/melon")
-      .then(async (res) => {
-        const enriched = await Promise.all(res.data.map(async (song: Song) => {
-          const key = `${song.title}-${song.artist}`;
-          if (imageMap[key]) return { ...song, albumImageUrl: imageMap[key] };
-
-          try {
-            const searchRes = await axios.get("https://letsgomusic.onrender.com/melon/search", {
-              params: { q: `${song.title} ${song.artist}` },
-            });
-            const videoId = searchRes.data.videoId;
-            const imageUrl = `https://img.youtube.com/vi/${videoId}/0.jpg`;
-            setImage(key, imageUrl);
-            return { ...song, albumImageUrl: imageUrl };
-          } catch {
-            return { ...song, albumImageUrl: placeholderUrl };
-          }
-        }));
-        setSongs(enriched);
-      })
-      .catch(console.error);
+    axios.get("https://letsgomusic.onrender.com/melon", {
+      withCredentials: true,  
+    })
+    .then(async (res) => {
+      const enriched = await Promise.all(res.data.map(async (song: Song) => {
+        const key = `${song.title}-${song.artist}`;
+        if (imageMap[key]) return { ...song, albumImageUrl: imageMap[key] };
+    
+        try {
+          const searchRes = await axios.get("https://letsgomusic.onrender.com/melon/search", {
+            params: { q: `${song.title} ${song.artist}` },
+          });
+          const videoId = searchRes.data.videoId;
+          const imageUrl = `https://img.youtube.com/vi/${videoId}/0.jpg`;
+          setImage(key, imageUrl);
+          return { ...song, albumImageUrl: imageUrl };
+        } catch {
+          return { ...song, albumImageUrl: placeholderUrl };
+        }
+      }));
+      setSongs(enriched);
+    });    
   }, []);
 
   useEffect(() => {
     if (!selected) return;
     axios.get("https://letsgomusic.onrender.com/melon/search", {
       params: { q: `${selected.title} ${selected.artist}` },
+      withCredentials: true,  
     }).then((res) => setYoutubeData(res.data));
   }, [selected]);
 
   useEffect(() => {
     if (viewMode !== "playlist") return;
-    axios.get("https://letsgomusic.onrender.com/playlist")
-      .then(async (res) => {
-        if (!Array.isArray(res.data)) return setPlaylist([]);
-        const enriched = await Promise.all(res.data.map(async (song: Song) => {
-          const key = `${song.title}-${song.artist}`;
-          if (song.albumImageUrl) return song;
-          if (imageMap[key]) return { ...song, albumImageUrl: imageMap[key] };
-          try {
-            const searchRes = await axios.get("https://letsgomusic.onrender.com/melon/search", {
-              params: { q: `${song.title} ${song.artist}` },
-            });
-            const videoId = searchRes.data.videoId;
-            const imageUrl = `https://img.youtube.com/vi/${videoId}/0.jpg`;
-            setImage(key, imageUrl);
-            return { ...song, albumImageUrl: imageUrl };
-          } catch {
-            return { ...song, albumImageUrl: placeholderUrl };
-          }
-        }));
-        setPlaylist(enriched);
-      })
-      .catch(() => setPlaylist([]));
+  
+    axios.get("https://letsgomusic.onrender.com/playlist", {
+      withCredentials: true,  // ✅ 여기 안에 들어가야 함
+    })
+    .then(async (res) => {
+      if (!Array.isArray(res.data)) return setPlaylist([]);
+      const enriched = await Promise.all(res.data.map(async (song: Song) => {
+        const key = `${song.title}-${song.artist}`;
+        if (song.albumImageUrl) return song;
+        if (imageMap[key]) return { ...song, albumImageUrl: imageMap[key] };
+        try {
+          const searchRes = await axios.get("https://letsgomusic.onrender.com/melon/search", {
+            params: { q: `${song.title} ${song.artist}` },
+            withCredentials: true,
+          });
+          const videoId = searchRes.data.videoId;
+          const imageUrl = `https://img.youtube.com/vi/${videoId}/0.jpg`;
+          setImage(key, imageUrl);
+          return { ...song, albumImageUrl: imageUrl };
+        } catch {
+          return { ...song, albumImageUrl: placeholderUrl };
+        }
+      }));
+      setPlaylist(enriched);
+    })
+    .catch(() => setPlaylist([]));
   }, [viewMode]);
+  
 
   const filteredSongs = songs.filter(song =>
     song.title.toLowerCase().includes(search.toLowerCase()) ||
