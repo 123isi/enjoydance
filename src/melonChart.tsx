@@ -544,3 +544,10 @@ const LoginBox = styled.div`
     }
   }
 `;
+const TableWrapper = styled.div`
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-bottom: 140px;
+`;
