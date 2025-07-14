@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import styled from "@emotion/styled";
-import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRedo, FaRandom, FaVolumeUp, FaListUl } from "react-icons/fa";
+import { FaPlay, FaPause, FaStepForward, FaStepBackward, FaRedo, FaRandom, FaVolumeUp } from "react-icons/fa";
 import { useYoutubeImageStore } from './useYoutubeImageStore';
 
 
