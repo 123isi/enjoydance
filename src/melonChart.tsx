@@ -18,6 +18,10 @@ type YoutubeResult = {
 };
 
 export default function App() {
+  const extractVideoIdFromImageUrl = (url: string) => {
+    const match = url.match(/vi\/(.*?)\//);
+    return match ? match[1] : "";
+  };
   const { imageMap, setImage } = useYoutubeImageStore();
   const [songs, setSongs] = useState<Song[]>([]);
   const [selected, setSelected] = useState<Song | null>(null);
@@ -46,36 +50,43 @@ export default function App() {
 
   useEffect(() => {
     axios.get("https://letsgomusic.onrender.com/melon", {
-      withCredentials: true,  
-    })
-    .then(async (res) => {
-      const enriched = await Promise.all(res.data.map(async (song: Song) => {
-        const key = `${song.title}-${song.artist}`;
-        if (imageMap[key]) return { ...song, albumImageUrl: imageMap[key] };
-          const searchRes = await axios.get("https://letsgomusic.onrender.com/melon/search", {
-            params: { q: `${song.title} ${song.artist}` },
-          });
-          const videoId = searchRes.data.videoId;
-          const imageUrl = `https://img.youtube.com/vi/${videoId}/0.jpg`;
-          setImage(key, imageUrl);
-          return { ...song, albumImageUrl: imageUrl };
-        
-      }));
-      setSongs(enriched);
-    });    
+      withCredentials: true,
+    }).then((res) => {
+      setSongs(res.data); 
+    });
   }, []);
-
   useEffect(() => {
     if (!selected) return;
+  
+    // 썸네일 미리 받아온 게 없으면 요청
+    const key = `${selected.title}-${selected.artist}`;
+    if (selected.albumImageUrl || imageMap[key]) {
+      setYoutubeData({
+        videoId: extractVideoIdFromImageUrl(selected.albumImageUrl ?? imageMap[key]),
+        title: selected.title,
+      });
+      return;
+    }
+  
     axios.get("https://letsgomusic.onrender.com/melon/search", {
       params: { q: `${selected.title} ${selected.artist}` },
-      withCredentials: true,  
-    }).then((res) => setYoutubeData(res.data));
+      withCredentials: true,
+    }).then((res) => {
+      const videoId = res.data.videoId;
+      const imageUrl = `https://img.youtube.com/vi/${videoId}/0.jpg`;
+      const newSong = { ...selected, albumImageUrl: imageUrl };
+  
+      setImage(key, imageUrl);
+      setSelected(newSong); // 이미지가 반영된 selected로 교체
+      setYoutubeData({ videoId, title: selected.title });
+    }).catch(() => {
+      setYoutubeData(null);
+    });
   }, [selected]);
+  
 
   useEffect(() => {
     if (viewMode !== "playlist") return;
-  
     axios.get("https://letsgomusic.onrender.com/playlist", {
       withCredentials: true,  // ✅ 여기 안에 들어가야 함
     })
@@ -270,7 +281,7 @@ export default function App() {
                 onClick={(e) => {
                   e.stopPropagation();
                   axios
-                    .delete(`http://127.0.0.1:8000/playlist/${song.rank}`)
+                    .delete(`https://letsgomusic.onrender.com/playlist/${song.rank}`)
                     .then(() => {
                       setPlaylist((prev) =>
                         prev.filter((p) => p.rank !== song.rank)
@@ -342,7 +353,7 @@ export default function App() {
           albumImageUrl,
         }));
         axios
-          .post("http://127.0.0.1:8000/playlist", { songs: simplified })
+          .post("https://letsgomusic.onrender.com/playlist", { songs: simplified })
           .then(() => {
             alert("저장 완료!");
             setViewMode("playlist");
